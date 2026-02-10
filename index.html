@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SkillClash</title>
+    
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <style>
+        :root {
+            --primary: #ffcc00;
+            --bg-deep: #08080a;
+            --surface: #121214;
+            --surface-light: #1c1c1f;
+            --text-main: #ffffff;
+            --text-dim: #a0a0a0;
+            --grad-gold: linear-gradient(135deg, #ffcc00 0%, #ff8800 100%);
+            --header-h: 70px;
+            --success: #00e676;
+            --danger: #ff3d00;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background-color: var(--bg-deep); color: var(--text-main); overflow-x: hidden; padding-top: var(--header-h); }
+        h1, h2, h3, b { font-family: 'Rajdhani', sans-serif; text-transform: uppercase; letter-spacing: 0.5px; }
+        .hidden { display: none !important; }
+
+        /* --- LOADER --- */
+        #app-loader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(8, 8, 10, 0.95);
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 5000; backdrop-filter: blur(8px);
+        }
+        .spinner { width: 45px; height: 45px; border: 4px solid rgba(255, 204, 0, 0.1); border-left-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* --- HEADER FIXED --- */
+        header {
+            height: var(--header-h); 
+            padding: 0 15px;
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            background: rgba(18, 18, 20, 0.95); 
+            backdrop-filter: blur(15px);
+            position: fixed; top: 0; left: 0; right: 0;
+            z-index: 1001; 
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        .header-left { display: flex; align-items: center; gap: 12px; }
+        .avatar-box { width: 40px; height: 40px; background: var(--grad-gold); border-radius: 12px; display: flex; align-items: center; justify-content: center; border: 2px solid #000; flex-shrink: 0; }
+        .avatar-box i { color: #000; font-size: 18px; }
+        .user-info h3 { font-size: 16px; line-height: 1; margin-bottom: 2px; }
+        .user-info p { font-size: 10px; color: var(--primary); font-weight: 700; line-height: 1; }
+        .wallet-pill { background: #000; padding: 6px 14px; border-radius: 50px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--primary); box-shadow: 0 0 10px rgba(255, 204, 0, 0.2); }
+
+        /* --- COMMON UI --- */
+        .btn-action { background: var(--grad-gold); color: #000; border: none; padding: 12px; border-radius: 12px; font-family: 'Rajdhani'; font-weight: 800; width: 100%; cursor: pointer; text-transform: uppercase; font-size: 14px; }
+        .input-field { width: 100%; background: var(--surface-light); border: 1px solid #333; padding: 14px; border-radius: 12px; color: white; margin-top: 15px; outline: none; }
+
+        /* --- SLIDER CSS --- */
+        .slider-container { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 15px; padding: 0 15px; -webkit-overflow-scrolling: touch; }
+        .slider-container::-webkit-scrollbar { display: none; }
+        .slider-item { min-width: 100%; height: 160px; border-radius: 20px; overflow: hidden; scroll-snap-align: center; border: 1px solid #333; position: relative; }
+        .slider-item img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* --- TOURNAMENT CARD DESIGN --- */
+        .match-card { background: var(--surface); border-radius: 24px; margin-bottom: 25px; overflow: hidden; border: 1px solid #333; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .match-banner { position: relative; height: 160px; width: 100%; }
+        .match-banner img { width: 100%; height: 100%; object-fit: cover; }
+        .card-badge { position: absolute; top: 15px; padding: 5px 12px; border-radius: 6px; font-size: 10px; font-weight: 800; text-transform: uppercase; z-index: 2; }
+        .badge-map { left: 15px; background: rgba(0,0,0,0.8); color: #fff; border: 1px solid #555; backdrop-filter: blur(4px); }
+        .badge-time { right: 15px; background: var(--primary); color: #000; box-shadow: 0 0 10px rgba(255, 204, 0, 0.4); }
+        
+        .match-info { padding: 20px; }
+        .match-info h3 { font-size: 18px; margin-bottom: 15px; line-height: 1.2; color: #fff; }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; background: #1a1a1d; padding: 12px; border-radius: 12px; border: 1px solid #333; }
+        .stat-item { display: flex; flex-direction: column; align-items: center; text-align: center; }
+        .stat-item span { font-size: 9px; color: #777; font-weight: 700; margin-bottom: 4px; }
+        .stat-item b { font-size: 14px; color: #fff; font-family: 'Rajdhani'; }
+        
+        .slot-bar { height: 6px; background: #333; border-radius: 10px; overflow: hidden; margin-bottom: 20px; position: relative; }
+        .slot-fill { height: 100%; background: var(--success); border-radius: 10px; transition: width 0.5s ease; }
+
+        /* --- WALLET & TRANSACTIONS --- */
+        .wallet-card { background: var(--grad-gold); padding: 25px 20px; border-radius: 25px; color: #000; margin-bottom: 20px; box-shadow: 0 10px 20px rgba(255, 204, 0, 0.15); position: relative; overflow: hidden; }
+        .wallet-card::after { content: ''; position: absolute; right: -20px; bottom: -20px; width: 100px; height: 100px; background: rgba(255,255,255,0.2); border-radius: 50%; }
+        .bal-split { display: flex; margin-top: 15px; background: rgba(0,0,0,0.1); border-radius: 15px; padding: 10px; }
+        .bal-box { flex: 1; text-align: center; position: relative; }
+        .bal-box:first-child { border-right: 1px solid rgba(0,0,0,0.1); }
+        .bal-box span { display: block; font-size: 10px; font-weight: 700; opacity: 0.7; }
+        .bal-box b { display: block; font-size: 16px; margin-top: 2px; }
+        .wallet-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px; }
+        .w-btn { background: var(--surface-light); border: 1px solid #333; padding: 15px; border-radius: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; cursor: pointer; transition: 0.2s; }
+        .txn-list { margin-top: 10px; padding-bottom: 20px; min-height: 100px; }
+        .txn-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #222; }
+        .txn-left { display: flex; gap: 12px; align-items: center; }
+        .txn-icon { width: 35px; height: 35px; background: #111; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        .txn-meta h4 { font-size: 13px; margin-bottom: 2px; color: #fff !important; }
+        .txn-meta p { font-size: 10px; color: #777; }
+        .txn-right { text-align: right; }
+        .txn-amount { font-weight: 700; font-size: 14px; font-family: 'Rajdhani'; }
+        .txn-status { font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 700; text-transform: uppercase; }
+        .c-green { color: var(--success); }
+        .c-red { color: var(--danger); }
+        .bg-pending { background: rgba(255, 204, 0, 0.2); color: var(--primary); }
+        .bg-success { background: rgba(0, 230, 118, 0.1); color: var(--success); }
+        .bg-failed { background: rgba(255, 61, 0, 0.1); color: var(--danger); }
+
+        /* --- NAVIGATION --- */
+        .nav-bar { 
+            position: fixed; bottom: 0; left: 0; right: 0; height: 65px; 
+            background: rgba(18, 18, 20, 0.95); backdrop-filter: blur(10px); 
+            display: flex; justify-content: space-between; align-items: center; 
+            border-top: 1px solid #222; z-index: 1000; 
+            padding: 0 10px;
+        }
+        .nav-item { text-align: center; color: #777; font-size: 10px; font-weight: 700; flex: 1; }
+        .nav-item.active { color: var(--primary); }
+        .nav-item i { font-size: 20px; display: block; margin-bottom: 3px; }
+
+        /* CENTER CHAT BUTTON */
+        .nav-center-wrapper { position: relative; top: -25px; flex: 0 0 auto; margin: 0 10px; }
+        .nav-chat-btn {
+            width: 60px; height: 60px;
+            background: var(--grad-gold);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px; color: #000;
+            box-shadow: 0 0 15px rgba(255, 204, 0, 0.4);
+            border: 4px solid var(--bg-deep); 
+            cursor: pointer;
+            position: relative; /* For badge positioning */
+            animation: pulseBtn 2s infinite;
+        }
+        @keyframes pulseBtn { 0% { box-shadow: 0 0 0 0 rgba(255, 204, 0, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(255, 204, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 204, 0, 0); } }
+
+        /* --- CHAT NOTIFICATION BADGE --- */
+        .chat-notify-badge {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background-color: var(--danger);
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid var(--bg-deep);
+            z-index: 10;
+            animation: bounce 0.5s ease;
+        }
+        @keyframes bounce { 0% {transform: scale(0);} 80% {transform: scale(1.2);} 100% {transform: scale(1);} }
+
+        /* --- CHAT MODAL --- */
+        #chat-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--surface); z-index: 4000; display: none; flex-direction: column; }
+        .chat-header { height: 60px; background: #18181b; border-bottom: 1px solid #333; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; }
+        .chat-body { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px; background: #000; scroll-behavior: smooth; }
+        .chat-footer { height: 70px; background: #18181b; border-top: 1px solid #333; display: flex; align-items: center; padding: 0 15px; gap: 10px; }
+        .msg-bubble { max-width: 75%; padding: 10px 15px; border-radius: 15px; font-size: 13px; line-height: 1.4; position: relative; word-wrap: break-word; }
+        .msg-user { align-self: flex-end; background: var(--grad-gold); color: #000; border-bottom-right-radius: 2px; }
+        .msg-admin { align-self: flex-start; background: #222; color: #fff; border: 1px solid #333; border-bottom-left-radius: 2px; }
+        .msg-time { font-size: 9px; opacity: 0.6; display: block; margin-top: 4px; text-align: right; }
+
+        /* --- OTHER MODALS --- */
+        #login-screen { height: 100vh; display: flex; align-items: center; justify-content: center; background: #050505; padding: 30px; position: fixed; width: 100%; top:0; left:0; z-index: 3000; }
+        .modal-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:2000; align-items:center; justify-content:center; padding:20px; backdrop-filter: blur(5px); }
+        .modal-box { background:var(--surface); width:100%; max-width:400px; border-radius:20px; padding:25px; border:1px solid #333; position: relative; animation: slideUp 0.3s ease; }
+        .close-mod { position: absolute; top: 15px; right: 15px; color: #555; font-size: 20px; cursor: pointer; padding: 5px; }
+
+        .notice-wrapper { padding: 15px 15px 5px; margin-top: 5px; }
+        .notice-glass { background: rgba(255, 204, 0, 0.1); border: 1px solid rgba(255, 204, 0, 0.2); border-radius: 10px; display: flex; align-items: center; height: 35px; overflow: hidden; }
+        .notice-label { background: var(--grad-gold); color: #000; padding: 0 10px; font-weight: 800; height: 100%; display: flex; align-items: center; clip-path: polygon(0 0, 90% 0, 100% 100%, 0% 100%); font-size: 10px; }
+        .notice-scroll { flex: 1; overflow: hidden; white-space: nowrap; }
+        .notice-scroll span { display: inline-block; animation: marquee 15s linear infinite; font-size: 11px; font-weight: 700; }
+        @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-180%); } }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        #conn-status { position:fixed; top:0; left:0; width:100%; background:#ff3d00; color:white; font-size:10px; text-align:center; padding:2px; z-index:9999; display:none; }
+
+    </style>
+</head>
+<body>
+
+    <div id="conn-status">Loading...</div>
+    <div id="app-loader"><div class="spinner"></div><p style="margin-top:15px; color:var(--primary); font-family:'Rajdhani'; letter-spacing:2px;">LOADING...</p></div>
+
+    <!-- CHAT SCREEN -->
+    <div id="chat-screen">
+        <div class="chat-header">
+            <h3 style="color:var(--primary);">SUPPORT CHAT</h3>
+            <i class="fas fa-times" style="color:#fff; font-size:20px; padding:10px;" onclick="closeModalDirect('chat-screen')"></i>
+        </div>
+        <div class="chat-body" id="chat-messages">
+            <div style="text-align:center; color:#555; font-size:11px; margin-top:20px;">Safe & Secure Chat<br>Ask for help regarding Deposit/Matches</div>
+        </div>
+        <div class="chat-footer">
+            <input type="text" id="chat-input" class="input-field" placeholder="Type a message..." style="margin:0; border-radius:50px;">
+            <button onclick="sendChatMessage()" style="width:50px; height:50px; border-radius:50%; background:var(--grad-gold); border:none; color:#000; font-size:18px; flex-shrink:0;"><i class="fas fa-paper-plane"></i></button>
+        </div>
+    </div>
+
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen">
+        <div style="width:100%; max-width:380px; text-align:center; background:var(--surface); padding:40px 25px; border-radius:30px; border:1px solid #333;">
+            <h1 style="color:var(--primary); font-size:32px;">SkillClash</h1>
+            <div id="login-step-1">
+                <p style="color:#777; font-size:12px; margin-top:10px;">MOBILE LOGIN</p>
+                <input type="tel" id="login-phone" class="input-field" placeholder="10 Digit Number" maxlength="10">
+                <button class="btn-action" style="margin-top:20px;" onclick="checkUserStatus()">CONTINUE</button>
+            </div>
+            <div id="login-step-pin" class="hidden">
+                <p id="welcome-msg" style="color:var(--primary); font-weight:700;">WELCOME</p>
+                <input type="password" id="login-pin" class="input-field" placeholder="6-DIGIT PIN" maxlength="6">
+                <button class="btn-action" style="margin-top:20px;" onclick="verifyPin()">LOGIN</button>
+            </div>
+            <div id="login-step-reg" class="hidden">
+                <p style="color:var(--primary); font-weight:700;">REGISTER</p>
+                <input type="text" id="reg-name" class="input-field" placeholder="FULL NAME">
+                <input type="password" id="reg-pin" class="input-field" placeholder="SET 6-DIGIT PIN" maxlength="6">
+                <button class="btn-action" style="margin-top:20px;" onclick="createNewUser()">REGISTER</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="app-content" class="hidden">
+        <header>
+            <div class="header-left">
+                <div class="avatar-box"><i class="fas fa-user-ninja"></i></div>
+                <div class="user-info">
+                    <h3 id="user-display-name">---</h3>
+                    <p>SkillClash</p>
+                </div>
+            </div>
+            <div class="wallet-pill" onclick="switchTab('wallet', document.querySelectorAll('.nav-item')[2])">
+                <i class="fas fa-coins" style="color:var(--primary)"></i> <b id="balance-val" style="color:#fff">0</b>
+            </div>
+        </header>
+
+        <!-- DYNAMIC NOTICE BAR -->
+        <div class="notice-wrapper">
+            <div class="notice-glass">
+                <div class="notice-label">NEWS</div>
+                <div class="notice-scroll">
+                    <span id="live-notice">Loading News...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- HOME -->
+        <div id="home-tab" class="tab-content">
+            <div id="game-selection-view">
+                
+                <!-- DYNAMIC SLIDER -->
+                <div style="margin-top:15px; margin-bottom:10px;">
+                    <div id="home-slider-wrapper" class="slider-container">
+                        <!-- Loaded via JS -->
+                    </div>
+                </div>
+
+                <!-- ADDED PADDING 120px HERE FOR FIXING SCROLL ISSUE -->
+                <div style="padding:0 15px 120px;">
+                    <h3 style="margin-bottom:15px; border-left:3px solid var(--primary); padding-left:10px;">Select Game</h3>
+                    
+                    <!-- DYNAMIC GAMES GRID -->
+                    <div id="dynamic-games-container" style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+                        <!-- Games Loaded Here -->
+                    </div>
+                </div>
+            </div>
+
+            <div id="tournament-view" class="hidden" style="padding:10px 15px 100px;">
+                <button class="btn-action" style="width:auto; padding:8px 15px; margin-bottom:15px;" onclick="history.back()"><i class="fas fa-arrow-left"></i> BACK</button>
+                <div id="matches-container"></div>
+            </div>
+        </div>
+
+        <div id="matches-tab" class="tab-content hidden" style="padding:20px 15px 100px;"><h2>Joined Battles</h2><div id="my-matches-container"></div></div>
+        
+        <!-- WALLET TAB -->
+        <div id="wallet-tab" class="tab-content hidden" style="padding:20px 15px 100px;">
+            <div class="wallet-card">
+                <p style="font-size:12px; font-weight:600; opacity:0.8;">Total Balance</p>
+                <h1 style="font-size:42px; margin-top:5px;">₹<span id="wallet-balance-big">0</span></h1>
+                
+                <div class="bal-split">
+                    <div class="bal-box">
+                        <span>DEPOSIT</span>
+                        <b id="main-bal-txt">₹0</b>
+                    </div>
+                    <div class="bal-box">
+                        <span>WINNINGS</span>
+                        <b id="win-bal-txt">₹0</b>
+                    </div>
+                </div>
+            </div>
+
+            <div class="wallet-actions">
+                <div class="w-btn" onclick="openDepositModal()">
+                    <i class="fas fa-arrow-down" style="color:#00e676"></i>
+                    <span>DEPOSIT</span>
+                </div>
+                <div class="w-btn" onclick="openWithdrawModal()">
+                    <i class="fas fa-arrow-up" style="color:#ff3d00"></i>
+                    <span>WITHDRAW</span>
+                </div>
+            </div>
+
+            <h3 style="margin-bottom:15px; border-left:3px solid var(--primary); padding-left:10px; font-size:16px;">Transaction History</h3>
+            <div id="txn-list" class="txn-list">
+                <p style="text-align:center; color:#555; font-size:12px; margin-top:20px;">Loading...</p>
+            </div>
+        </div>
+
+        <div id="profile-tab" class="tab-content hidden" style="padding:0 15px 100px;">
+            <div style="text-align:center; padding:30px 0;">
+                <div style="width:80px; height:80px; background:var(--grad-gold); border-radius:25px; margin:0 auto 15px; display:flex; align-items:center; justify-content:center; font-size:35px; color:#000;"><i class="fas fa-user"></i></div>
+                <h2 id="prof-name">---</h2>
+                <p id="prof-phone" style="color:var(--text-dim); font-size:12px;">+91 0000000000</p>
+            </div>
+            <div style="background:var(--surface-light); padding:20px; border-radius:20px; border:1px solid #333;">
+                <p style="font-size:11px; color:var(--primary); font-weight:700; margin-bottom:10px;">IN-GAME NAME (IGN)</p>
+                <div style="display:flex; gap:10px;">
+                    <input type="text" id="ign-input" class="input-field" placeholder="Enter Game Name" style="margin:0; flex:1; text-align:left;">
+                    <button class="btn-action" style="width:80px; font-size:12px;" onclick="saveIGN()">SAVE</button>
+                </div>
+            </div>
+            <button class="btn-action" style="margin-top:20px; background:#ff4444; color:#fff;" onclick="logout()">LOGOUT</button>
+        </div>
+
+        <nav class="nav-bar">
+            <div class="nav-item active" onclick="switchTab('home', this)"><i class="fas fa-home"></i>Home</div>
+            <div class="nav-item" onclick="switchTab('matches', this)"><i class="fas fa-trophy"></i>Matches</div>
+            
+            <!-- CENTER CHAT BUTTON (UPDATED WITH BADGE) -->
+            <div class="nav-center-wrapper">
+                <div class="nav-chat-btn" onclick="openChat()">
+                    <i class="fas fa-headset"></i>
+                    <!-- BADGE ELEMENT -->
+                    <div id="chat-badge-count" class="chat-notify-badge hidden">0</div>
+                </div>
+            </div>
+            
+            <div class="nav-item" onclick="switchTab('wallet', this)"><i class="fas fa-wallet"></i>Wallet</div>
+            <div class="nav-item" onclick="switchTab('profile', this)"><i class="fas fa-user-circle"></i>Profile</div>
+        </nav>
+    </div>
+
+    <!-- MODALS -->
+    <div id="match-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h2 id="m-title" style="color:var(--primary); margin-bottom:5px;">Join Match</h2>
+            <p style="font-size:11px; color:#777; margin-bottom:15px;">Edit In-Game Name if needed:</p>
+            <div id="teammate-inputs"></div>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn-action" id="join-btn-final">JOIN NOW</button>
+                <button class="btn-action" style="background:#333; color:#fff;" onclick="closeModalDirect('match-modal')">CLOSE</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="deposit-modal" class="modal-overlay">
+        <div class="modal-box">
+            <i class="fas fa-times close-mod" onclick="closeModalDirect('deposit-modal')"></i>
+            <h2 style="color:var(--primary); text-align:center;">ADD MONEY</h2>
+            <div style="text-align:center; margin:20px 0;">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=YOUR_UPI_ID_HERE&pn=EsportsHub" style="border-radius:10px; border:2px solid #fff;">
+                <p style="font-size:10px; color:#777; margin-top:10px;">Scan to Pay</p>
+                <div style="background:#222; padding:10px; border-radius:8px; margin-top:10px; font-size:12px; display:flex; justify-content:space-between; align-items:center;">
+                    <span id="admin-upi">merchant@upi</span>
+                    <i class="fas fa-copy" style="color:var(--primary); cursor:pointer;" onclick="navigator.clipboard.writeText('merchant@upi'); alert('Copied')"></i>
+                </div>
+            </div>
+            <input type="number" id="dep-amount" class="input-field" placeholder="Enter Amount (₹)">
+            <input type="text" id="dep-utr" class="input-field" placeholder="Enter UTR / Ref No. (12 Digits)">
+            <button class="btn-action" style="margin-top:20px;" onclick="submitDeposit()">VERIFY & ADD</button>
+        </div>
+    </div>
+
+    <div id="withdraw-modal" class="modal-overlay">
+        <div class="modal-box">
+            <i class="fas fa-times close-mod" onclick="closeModalDirect('withdraw-modal')"></i>
+            <h2 style="color:#ff3d00; text-align:center;">WITHDRAW</h2>
+            <p style="font-size:11px; color:#777; text-align:center; margin-bottom:20px;">Only Winning Balance is Withdrawable.</p>
+            
+            <div style="background:rgba(255, 61, 0, 0.1); padding:10px; border-radius:10px; text-align:center; margin-bottom:15px; border:1px dashed #ff3d00;">
+                <span style="font-size:10px; color:#aaa;">AVAILABLE WINNINGS</span>
+                <br>
+                <b style="color:#ff3d00; font-size:18px;">₹<span id="wd-avail-bal">0</span></b>
+            </div>
+
+            <input type="number" id="wd-amount" class="input-field" placeholder="Amount (Min ₹30)">
+            <input type="text" id="wd-upi" class="input-field" placeholder="Your UPI ID">
+            <button class="btn-action" style="margin-top:20px; background: linear-gradient(135deg, #ff3d00, #c62828); color:white;" onclick="submitWithdraw()">REQUEST WITHDRAW</button>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const ADMIN_UPI = "yourupi@okaxis"; 
+        document.getElementById('admin-upi').innerText = ADMIN_UPI;
+        document.querySelector('#deposit-modal img').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=${ADMIN_UPI}&pn=EsportsHub`;
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCOQIz1tYviDdTTFdYLMfjU9RNTix_yLXc",
+            authDomain: "tournament-fac64.firebaseapp.com",
+            databaseURL: "https://tournament-fac64-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "tournament-fac64",
+            storageBucket: "tournament-fac64.firebasestorage.app",
+            messagingSenderId: "822685035287",
+            appId: "1:822685035287:web:f87536cc743dc6de31a552"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let currentUser = null;
+        let allMatches = {};
+
+        function showLoader() { document.getElementById('app-loader').style.display = 'flex'; }
+        function hideLoader() { document.getElementById('app-loader').style.display = 'none'; }
+
+        // --- AUTH ---
+        function checkUserStatus() {
+            const phone = document.getElementById('login-phone').value;
+            if(phone.length !== 10) return alert("Enter 10 digits");
+            showLoader();
+            db.ref('users/' + phone).once('value', snap => {
+                hideLoader();
+                document.getElementById('login-step-1').classList.add('hidden');
+                if(snap.exists()) {
+                    currentUser = snap.val();
+                    document.getElementById('welcome-msg').innerText = "HELLO, " + currentUser.name;
+                    document.getElementById('login-step-pin').classList.remove('hidden');
+                } else {
+                    document.getElementById('login-step-reg').classList.remove('hidden');
+                }
+            });
+        }
+
+        function verifyPin() {
+            const pin = document.getElementById('login-pin').value;
+            if(pin === currentUser.pin) {
+                localStorage.setItem('ff_user_key', currentUser.uid);
+                initApp();
+            } else alert("Wrong PIN");
+        }
+
+        function createNewUser() {
+            const phone = document.getElementById('login-phone').value;
+            const name = document.getElementById('reg-name').value;
+            const pin = document.getElementById('reg-pin').value;
+            if(!name || pin.length !== 6) return alert("Enter Name & 6-digit PIN");
+            showLoader();
+            const userData = { uid: phone, name, pin, main: 10, winning: 0, ign: "" }; 
+            db.ref('users/' + phone).set(userData).then(() => { 
+                addTransaction(phone, 10, "BONUS", "SUCCESS", "Welcome Bonus")
+                .then(() => {
+                    localStorage.setItem('ff_user_key', phone); 
+                    initApp(); 
+                });
+            });
+        }
+
+        function initApp() {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('app-content').classList.remove('hidden');
+            
+            // INITIAL HISTORY STATE SET (For Back Button Logic)
+            history.replaceState({view: 'home'}, "Home", "");
+
+            const uid = localStorage.getItem('ff_user_key');
+            
+            db.ref('.info/connected').on('value', snap => {
+                const statusEl = document.getElementById('conn-status');
+                if (snap.val() === true) statusEl.style.display = 'none';
+                else statusEl.style.display = 'block';
+            });
+
+            db.ref('users/' + uid).on('value', snap => {
+                currentUser = snap.val();
+                if(!currentUser) return;
+                updateUI(currentUser);
+                hideLoader();
+            });
+
+            db.ref('matches').on('value', snap => { allMatches = snap.val() || {}; renderMatches(); renderMyMatches(); });
+            loadTransactions(uid);
+            initChatSystem(uid); 
+            loadUserBanners();
+            loadDynamicGames();
+            loadLiveNotice(); 
+        }
+
+        function updateUI(user) {
+            const main = parseFloat(user.main || 0);
+            const win = parseFloat(user.winning || 0);
+            const total = main + win;
+
+            document.getElementById('user-display-name').innerText = user.ign || user.name;
+            document.getElementById('balance-val').innerText = total;
+            document.getElementById('wallet-balance-big').innerText = total;
+            document.getElementById('main-bal-txt').innerText = "₹" + main;
+            document.getElementById('win-bal-txt').innerText = "₹" + win;
+            document.getElementById('wd-avail-bal').innerText = win;
+            document.getElementById('prof-name').innerText = user.name;
+            document.getElementById('prof-phone').innerText = "+91 " + user.uid;
+            document.getElementById('ign-input').value = user.ign || "";
+        }
+
+        function loadLiveNotice() {
+            const noticeEl = document.getElementById('live-notice');
+            db.ref('admin_settings/notice').on('value', snap => {
+                const msg = snap.val();
+                noticeEl.innerText = msg || "Welcome to Esports Hub! Join daily matches.";
+            });
+        }
+
+        function loadUserBanners() {
+            const wrapper = document.getElementById('home-slider-wrapper');
+            db.ref('banners').on('value', snap => {
+                if(!snap.exists()) {
+                     wrapper.innerHTML = `<div class="slider-item"><img src="https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800"></div>`;
+                     return;
+                }
+                wrapper.innerHTML = "";
+                snap.forEach(c => {
+                    wrapper.innerHTML += `<div class="slider-item"><img src="${c.val().url}"></div>`;
+                });
+            });
+        }
+
+        function loadDynamicGames() {
+            const container = document.getElementById('dynamic-games-container');
+            db.ref('game_list').on('value', snap => {
+                container.innerHTML = "";
+                if(!snap.exists()) { container.innerHTML = "<p>No games found.</p>"; return; }
+                snap.forEach(c => {
+                    const g = c.val();
+                    container.innerHTML += `<div class="match-card" style="margin:0;" onclick="openGame('${g.name}')"><div class="match-banner" style="height:180px;"><img src="${g.img || 'https://via.placeholder.com/150'}"></div><span style="display:block; text-align:center; padding:10px; font-weight:700; font-size:12px;">${g.name}</span></div>`;
+                });
+            });
+        }
+
+        // --- WALLET & MODAL HANDLING WITH HISTORY ---
+        
+        // Helper to push state when opening modal so back button closes it
+        function openModalWithState(modalId) {
+            document.getElementById(modalId).style.display = 'flex';
+            // We push state so pressing back triggers onpopstate
+            history.pushState({modal: modalId, view: getCurrentTab()}, "", "");
+        }
+
+        // Helper to close modal by simulating back button (if opened via history)
+        // OR direct close if needed
+        function closeModalDirect(modalId) {
+            // If we have history state for modal, going back will close it via onpopstate
+            if (history.state && history.state.modal === modalId) {
+                history.back();
+            } else {
+                // Fallback direct close
+                document.getElementById(modalId).style.display = 'none';
+            }
+        }
+
+        function getCurrentTab() {
+            if(!document.getElementById('home-tab').classList.contains('hidden')) return 'home';
+            if(!document.getElementById('matches-tab').classList.contains('hidden')) return 'matches';
+            if(!document.getElementById('wallet-tab').classList.contains('hidden')) return 'wallet';
+            if(!document.getElementById('profile-tab').classList.contains('hidden')) return 'profile';
+            return 'home';
+        }
+
+        function openDepositModal() { openModalWithState('deposit-modal'); }
+        function openWithdrawModal() { openModalWithState('withdraw-modal'); }
+
+        function addTransaction(uid, amount, type, status, msg) {
+            const txnId = Date.now();
+            return db.ref(`transactions/${uid}/${txnId}`).set({
+                id: txnId,
+                amount: parseFloat(amount),
+                type: type, 
+                status: status, 
+                date: new Date().toISOString(),
+                details: msg
+            });
+        }
+
+        function submitDeposit() {
+            const amountInp = document.getElementById('dep-amount');
+            const utrInp = document.getElementById('dep-utr');
+            const amount = parseFloat(amountInp.value);
+            const utr = utrInp.value.trim();
+            if(!amount || amount < 10) return alert("Min Deposit ₹10");
+            if(utr.length < 12) return alert("Invalid UTR");
+            showLoader();
+            addTransaction(currentUser.uid, amount, "DEPOSIT", "PENDING", "UTR: " + utr)
+            .then(() => { hideLoader(); closeModalDirect('deposit-modal'); alert("Deposit Request Submitted Successfully!"); amountInp.value = ""; utrInp.value = ""; })
+            .catch(err => { hideLoader(); alert("Error: " + err.message); });
+        }
+
+        function submitWithdraw() {
+            const amountInp = document.getElementById('wd-amount');
+            const upiInp = document.getElementById('wd-upi');
+            const amount = parseFloat(amountInp.value);
+            const upi = upiInp.value;
+            const winBal = currentUser.winning || 0;
+            if(!amount || amount < 30) return alert("Min Withdraw ₹30");
+            if(amount > winBal) return alert("Insufficient Winning Balance!");
+            if(!upi.includes("@")) return alert("Invalid UPI ID");
+            if(confirm("Withdraw ₹" + amount + "?")) {
+                showLoader();
+                db.ref(`users/${currentUser.uid}/winning`).set(winBal - amount)
+                .then(() => addTransaction(currentUser.uid, amount, "WITHDRAW", "PENDING", "UPI: " + upi))
+                .then(() => { hideLoader(); closeModalDirect('withdraw-modal'); alert("Withdrawal Requested!"); amountInp.value = ""; })
+                .catch(err => { hideLoader(); alert("Error: " + err.message); });
+            }
+        }
+
+        function loadTransactions(uid) {
+            const list = document.getElementById('txn-list');
+            list.innerHTML = '<p style="text-align:center; color:var(--primary); margin-top:20px;">Fetching Data...</p>';
+            db.ref('transactions/' + uid).off();
+            db.ref('transactions/' + uid).limitToLast(20).on('value', (snap) => {
+                if(!snap.exists()) { list.innerHTML = '<div style="text-align:center; padding:20px; color:#777;">No Transactions Yet</div>'; return; }
+                let txns = [];
+                snap.forEach(child => { if(child.val()) txns.push(child.val()); });
+                txns.sort((a, b) => (b.id || 0) - (a.id || 0));
+                let html = "";
+                txns.forEach(t => {
+                    let type = t.type || "UNKNOWN", amount = t.amount || 0, status = t.status || "PENDING", detail = t.details || "";
+                    let icon = 'fa-coins', colorClass = 'c-green', sign = '+', bgStatus = 'bg-success';
+                    if(type === 'WITHDRAW' || type === 'JOIN') { icon = type === 'WITHDRAW' ? 'fa-arrow-up' : 'fa-gamepad'; colorClass = 'c-red'; sign = '-'; }
+                    if(type === 'DEPOSIT') { icon = 'fa-arrow-down'; colorClass = 'c-green'; }
+                    if(status === 'PENDING') bgStatus = 'bg-pending'; if(status === 'FAILED') bgStatus = 'bg-failed';
+                    let dateStr = "Just Now";
+                    if(t.date) { const d = new Date(t.date); if(!isNaN(d.getTime())) dateStr = `${d.getDate()}/${d.getMonth()+1} • ${d.getHours()}:${d.getMinutes() < 10 ? '0'+d.getMinutes() : d.getMinutes()}`; }
+                    html += `<div class="txn-item"><div class="txn-left"><div class="txn-icon"><i class="fas ${icon} ${colorClass}"></i></div><div class="txn-meta"><h4 style="color:#fff !important;">${type}</h4><p>${dateStr} • ${detail}</p></div></div><div class="txn-right"><div class="txn-amount ${colorClass}">${sign}₹${amount}</div><div class="txn-status ${bgStatus}">${status}</div></div></div>`;
+                });
+                list.innerHTML = html;
+            });
+        }
+
+        // --- UPDATED CHAT SYSTEM LOGIC ---
+        
+        function openChat() { 
+            const chatScreen = document.getElementById('chat-screen');
+            const badge = document.getElementById('chat-badge-count');
+            
+            chatScreen.style.display = 'flex';
+            // Push State for Back Button handling
+            history.pushState({modal: 'chat-screen', view: getCurrentTab()}, "", "");
+            
+            badge.classList.add('hidden');
+            badge.innerText = "0";
+            localStorage.setItem('last_chat_read_time', Date.now());
+
+            setTimeout(() => {
+                const chatBody = document.getElementById('chat-messages');
+                chatBody.scrollTop = chatBody.scrollHeight;
+            }, 100);
+        }
+
+        function initChatSystem(uid) {
+            const chatBody = document.getElementById('chat-messages');
+            const badge = document.getElementById('chat-badge-count');
+
+            db.ref(`support_chats/${uid}`).limitToLast(50).on('value', snap => {
+                if(!snap.exists()) return;
+
+                chatBody.innerHTML = '<div style="text-align:center; color:#555; font-size:11px; margin-top:20px;">Safe & Secure Chat<br>Ask for help regarding Deposit/Matches</div>';
+                
+                let unreadCount = 0;
+                const lastRead = localStorage.getItem('last_chat_read_time') || 0;
+                const isChatOpen = document.getElementById('chat-screen').style.display === 'flex';
+
+                snap.forEach(child => {
+                    const msg = child.val();
+                    const isMe = msg.sender === 'user';
+                    const time = new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    
+                    chatBody.innerHTML += `<div class="msg-bubble ${isMe ? 'msg-user' : 'msg-admin'}">${msg.text}<span class="msg-time">${time}</span></div>`;
+
+                    if (!isMe && msg.timestamp > lastRead && !isChatOpen) {
+                        unreadCount++;
+                    }
+                });
+
+                if (unreadCount > 0) {
+                    badge.innerText = unreadCount > 9 ? '9+' : unreadCount;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+
+                if (isChatOpen) {
+                    chatBody.scrollTop = chatBody.scrollHeight;
+                    localStorage.setItem('last_chat_read_time', Date.now());
+                }
+            });
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if(!text) return;
+            db.ref(`support_chats/${currentUser.uid}`).push({ sender: 'user', text: text, timestamp: Date.now() });
+            input.value = "";
+            setTimeout(() => {
+                const chatBody = document.getElementById('chat-messages');
+                chatBody.scrollTop = chatBody.scrollHeight;
+            }, 100);
+        }
+
+        // --- MATCH LOGIC ---
+        function openMatch(id) {
+            const m = allMatches[id];
+            const isUserIn = m.players && m.players[currentUser.uid];
+            document.getElementById('m-title').innerText = m.title;
+            const container = document.getElementById('teammate-inputs');
+            container.innerHTML = '';
+            
+            if(!isUserIn) {
+                let count = (m.type === 'SQUAD') ? 4 : (m.type === 'DUO' ? 2 : 1);
+                for(let i=1; i<=count; i++) {
+                    let def = (i === 1) ? (currentUser.ign || currentUser.name) : "";
+                    container.innerHTML += `<input type="text" class="input-field tm-name" value="${def}" placeholder="Player ${i} IGN">`;
+                }
+                document.getElementById('join-btn-final').onclick = () => {
+                    const names = Array.from(document.querySelectorAll('.tm-name')).map(i => i.value);
+                    if(names.some(n => n.trim() === "")) return alert("Enter all names");
+                    let fee = parseFloat(m.fee);
+                    let main = parseFloat(currentUser.main || 0), win = parseFloat(currentUser.winning || 0);
+                    if((main + win) < fee) return alert("Low balance! Add money.");
+                    showLoader();
+                    let newMain = main >= fee ? main - fee : 0;
+                    let newWin = main >= fee ? win : win - (fee - main);
+                    db.ref(`users/${currentUser.uid}/ign`).set(names[0]); 
+                    db.ref(`users/${currentUser.uid}`).update({ main: newMain, winning: newWin })
+                    .then(() => db.ref(`matches/${id}/players/${currentUser.uid}`).set({ names, uid: currentUser.uid }))
+                    .then(() => addTransaction(currentUser.uid, fee, "JOIN", "SUCCESS", m.title))
+                    .then(() => { hideLoader(); alert("Joined Successfully!"); closeModalDirect('match-modal'); });
+                };
+            } else {
+                container.innerHTML = `<div style="background:#000; padding:15px; border-radius:15px; border:1px dashed var(--primary); text-align:center;"><p style="color:var(--primary); font-size:10px;">ROOM DETAILS</p><p style="font-size:18px;">ID: ${m.roomID || 'TBA'}<br>PASS: ${m.roomPass || 'TBA'}</p></div>`;
+            }
+            openModalWithState('match-modal');
+        }
+
+        function saveIGN() {
+            const ign = document.getElementById('ign-input').value;
+            if(!ign) return alert("Enter IGN");
+            showLoader();
+            db.ref(`users/${currentUser.uid}/ign`).set(ign).then(() => { hideLoader(); alert("IGN Saved!"); });
+        }
+
+        // Updated Open Game to push state
+        function openGame() {
+            document.getElementById('game-selection-view').classList.add('hidden');
+            document.getElementById('tournament-view').classList.remove('hidden');
+            // History State for inner navigation
+            history.pushState({view: 'tournaments'}, "", "");
+        }
+
+        function renderMatches() {
+            const container = document.getElementById('matches-container');
+            container.innerHTML = '';
+            Object.keys(allMatches).reverse().forEach(id => {
+                const m = allMatches[id];
+                const joined = m.players ? Object.keys(m.players).length : 0;
+                const isUserIn = m.players && m.players[currentUser.uid];
+                container.innerHTML += `<div class="match-card"><div class="match-banner"><img src="${m.banner}"><div class="card-badge badge-map">${m.map||'BERMUDA'}</div><div class="card-badge badge-time">${m.time||'TBA'}</div></div><div class="match-info"><h3>${m.title}</h3><div class="stats-grid"><div class="stat-item"><span>WIN PRIZE</span><b>₹${m.prize}</b></div><div class="stat-item"><span>ENTRY FEE</span><b>₹${m.fee}</b></div><div class="stat-item"><span>TEAM MODE</span><b>${m.type}</b></div></div><div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; color:var(--primary); margin-bottom:5px;"><span>SLOTS FILLED</span><span>${joined}/${m.slots}</span></div><div class="slot-bar"><div class="slot-fill" style="width:${(joined/m.slots)*100}%"></div></div><button class="btn-action" onclick="openMatch('${id}')">${isUserIn?'VIEW DETAILS':'JOIN MATCH'}</button></div></div>`;
+            });
+        }
+        function renderMyMatches() {
+            const container = document.getElementById('my-matches-container');
+            container.innerHTML = '';
+            Object.keys(allMatches).reverse().forEach(id => {
+                if(allMatches[id].players && allMatches[id].players[currentUser.uid]) {
+                    container.innerHTML += `<div class="match-card" style="padding:15px; border-left:4px solid var(--primary);"><h3>${allMatches[id].title}</h3><button class="btn-action" style="margin-top:10px;" onclick="openMatch('${id}')">ROOM INFO</button></div>`;
+                }
+            });
+        }
+        
+        // Updated Switch Tab to push state
+        function switchTab(tab, el, push = true) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+            document.getElementById(tab + '-tab').classList.remove('hidden');
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            
+            // Highlight nav item (logic to find based on tab name if el is null)
+            if(el) {
+                el.classList.add('active');
+            } else {
+                // Auto highlight based on tab name
+                const icons = {'home': 0, 'matches': 1, 'wallet': 2, 'profile': 3};
+                const navs = document.querySelectorAll('.nav-item');
+                if(navs[icons[tab]]) navs[icons[tab]].classList.add('active');
+            }
+
+            if(push) {
+                history.pushState({view: tab}, "", "");
+            }
+        }
+
+        function logout() { localStorage.clear(); location.reload(); }
+        
+        window.onload = () => { const key = localStorage.getItem('ff_user_key'); if(key) { showLoader(); initApp(); } };
+        
+        // --- CORE NAVIGATION LOGIC (THE FIX) ---
+        window.onpopstate = function(event) {
+            // Always close any open modals first
+            document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none');
+            document.getElementById('chat-screen').style.display = 'none';
+
+            if(event.state) {
+                const view = event.state.view;
+                
+                // If it was a modal state, we just closed it above.
+                // We check if we need to restore a specific tab view
+                if(view === 'home' || view === 'matches' || view === 'wallet' || view === 'profile') {
+                    // Reset to Base Views
+                    document.getElementById('tournament-view').classList.add('hidden');
+                    document.getElementById('game-selection-view').classList.remove('hidden');
+                    
+                    switchTab(view, null, false); // Switch visually without pushing new state
+                }
+                else if (view === 'tournaments') {
+                    // Restore tournament view inside home
+                    switchTab('home', null, false);
+                    document.getElementById('game-selection-view').classList.add('hidden');
+                    document.getElementById('tournament-view').classList.remove('hidden');
+                }
+            } else {
+                // Default fallback
+                switchTab('home', null, false);
+            }
+        };
+    </script>
+</body>
+</html>
